@@ -9,7 +9,9 @@ import {
   getAdminUsers,
   createAdminUser,
   updateAdminUser,
-  deleteAdminUser
+  deleteAdminUser,
+  runCatalogSeed,
+  getCatalogSeedStatus
 } from '../controllers/authController.js';
 import { auth, isAdmin } from '../middleware/auth.js';
 
@@ -25,5 +27,7 @@ router.get('/admin/users', auth, isAdmin, getAdminUsers);
 router.post('/admin/users', auth, isAdmin, createAdminUser);
 router.put('/admin/users/:id', auth, isAdmin, updateAdminUser);
 router.delete('/admin/users/:id', auth, isAdmin, deleteAdminUser);
+router.post('/admin/seed', auth, isAdmin, runCatalogSeed);
+router.get('/admin/seed/status', auth, isAdmin, getCatalogSeedStatus);
 
 export default router;

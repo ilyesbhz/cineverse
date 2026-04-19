@@ -5,9 +5,16 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
-    "seed": "node seed.js"
+    "seed": "node seed.js --mode=replace --source=mixed",
+    "seed:append": "node seed.js --mode=append --source=mixed",
+    "seed:archive": "node seed.js --mode=replace --source=archive",
+    "seed:append:archive": "node seed.js --mode=append --source=archive",
+    "seed:tmdb": "node seed.js --mode=replace --source=tmdb",
+    "seed:append:tmdb": "node seed.js --mode=append --source=tmdb",
+    "seed:reels": "node seed-reels-live.js"
   },
   "dependencies": {
+    "axios": "^1.15.0",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
@@ -15,6 +22,7 @@
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.4.0",
     "multer": "^2.0.2",
+    "redis": "^5.12.1",
     "stripe": "^20.3.1"
   },
   "devDependencies": {

@@ -10,6 +10,12 @@ export default function AdminDashboard() {
   const [discussions, setDiscussions] = useState([]);
   const [userSearch, setUserSearch] = useState('');
   const [loading, setLoading] = useState(false);
+  const [seedMode, setSeedMode] = useState('append');
+  const [seedSource, setSeedSource] = useState('mixed');
+  const [tmdbLimit, setTmdbLimit] = useState(30);
+  const [archiveLimit, setArchiveLimit] = useState(20);
+  const [seedJob, setSeedJob] = useState(null);
+  const [seedLoading, setSeedLoading] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -46,6 +52,32 @@ export default function AdminDashboard() {
         .catch(err => console.error('Error fetching discussions:', err))
         .finally(() => setLoading(false));
     }
+  }, [API, getHeaders, activeTab]);
+
+  useEffect(() => {
+    if (activeTab !== 'movies') return;
+
+    let mounted = true;
+    const fetchSeedStatus = async () => {
+      try {
+        const res = await axios.get(`${API}/auth/admin/seed/status`, { headers: getHeaders() });
+        if (mounted) {
+          setSeedJob(res.data?.job || null);
+        }
+      } catch (err) {
+        if (mounted) {
+          setSeedJob(null);
+        }
+      }
+    };
+
+    fetchSeedStatus();
+    const interval = setInterval(fetchSeedStatus, 4000);
+
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
   }, [API, getHeaders, activeTab]);
 
   const handleApproveDiscussion = async (discussionId) => {
@@ -134,6 +166,29 @@ export default function AdminDashboard() {
     } catch (err) {
       console.error('Error updating user:', err);
       alert('Failed to update user');
+    }
+  };
+
+  const runSeedJob = async () => {
+    try {
+      setSeedLoading(true);
+      const res = await axios.post(
+        `${API}/auth/admin/seed`,
+        {
+          mode: seedMode,
+          source: seedSource,
+          tmdbLimit: Number(tmdbLimit),
+          archiveLimit: Number(archiveLimit)
+        },
+        { headers: getHeaders() }
+      );
+      setSeedJob(res.data?.job || null);
+      alert('Seed job started. Status will auto-refresh.');
+    } catch (err) {
+      console.error('Error starting seed job:', err);
+      alert(err?.response?.data?.message || 'Failed to start seed job');
+    } finally {
+      setSeedLoading(false);
     }
   };
 
@@ -512,7 +567,125 @@ export default function AdminDashboard() {
 
       {!loading && activeTab === 'movies' && (
         <section className="section" style={{ paddingTop: 0 }}>
-          <p style={{ color: 'var(--text-dim)' }}>Movie management features coming soon...</p>
+          <h2 style={{ marginBottom: '16px' }}>Catalog Seeding</h2>
+          <p style={{ color: 'var(--text-dim)', marginBottom: '16px' }}>
+            Run catalog seeding without leaving the dashboard.
+          </p>
+
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+            gap: '12px',
+            marginBottom: '14px'
+          }}>
+            <label style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <span style={{ color: 'var(--text-dim)', fontSize: '0.85rem' }}>Mode</span>
+              <select
+                value={seedMode}
+                onChange={(e) => setSeedMode(e.target.value)}
+                className="input"
+                style={{ height: '40px' }}
+              >
+                <option value="append">append (keep existing)</option>
+                <option value="replace">replace (wipe then seed)</option>
+              </select>
+            </label>
+
+            <label style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <span style={{ color: 'var(--text-dim)', fontSize: '0.85rem' }}>Source</span>
+              <select
+                value={seedSource}
+                onChange={(e) => setSeedSource(e.target.value)}
+                className="input"
+                style={{ height: '40px' }}
+              >
+                <option value="mixed">mixed (TMDB + Archive)</option>
+                <option value="tmdb">tmdb only</option>
+                <option value="archive">archive only</option>
+              </select>
+            </label>
+
+            <label style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <span style={{ color: 'var(--text-dim)', fontSize: '0.85rem' }}>TMDB limit</span>
+              <input
+                type="number"
+                min="1"
+                max="100"
+                value={tmdbLimit}
+                onChange={(e) => setTmdbLimit(e.target.value)}
+                className="input"
+              />
+            </label>
+
+            <label style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <span style={{ color: 'var(--text-dim)', fontSize: '0.85rem' }}>Archive limit</span>
+              <input
+                type="number"
+                min="1"
+                max="100"
+                value={archiveLimit}
+                onChange={(e) => setArchiveLimit(e.target.value)}
+                className="input"
+              />
+            </label>
+          </div>
+
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '16px' }}>
+            <button
+              onClick={runSeedJob}
+              disabled={seedLoading || seedJob?.status === 'running'}
+              className="btn btn-primary"
+            >
+              {seedLoading ? 'Starting...' : 'Run Seed Job'}
+            </button>
+            <button
+              onClick={async () => {
+                try {
+                  const res = await axios.get(`${API}/auth/admin/seed/status`, { headers: getHeaders() });
+                  setSeedJob(res.data?.job || null);
+                } catch (err) {
+                  alert('Failed to refresh seed status');
+                }
+              }}
+              className="btn btn-secondary"
+            >
+              Refresh Status
+            </button>
+          </div>
+
+          <div style={{
+            background: 'rgba(255,255,255,0.03)',
+            border: '1px solid var(--border)',
+            borderRadius: 'var(--radius)',
+            padding: '12px'
+          }}>
+            <div style={{ marginBottom: '8px', fontWeight: '700' }}>Current / Last Job</div>
+            {seedJob ? (
+              <>
+                <div style={{ color: 'var(--text-dim)', fontSize: '0.9rem', marginBottom: '8px' }}>
+                  Status: <strong style={{ color: seedJob.status === 'failed' ? '#ff6b6b' : 'var(--text)' }}>{seedJob.status}</strong>
+                  {' • '}Mode: {seedJob.mode}
+                  {' • '}Source: {seedJob.source}
+                </div>
+                <div style={{
+                  maxHeight: '220px',
+                  overflowY: 'auto',
+                  background: 'var(--bg3)',
+                  border: '1px solid var(--border)',
+                  borderRadius: '8px',
+                  padding: '10px',
+                  fontFamily: 'monospace',
+                  fontSize: '0.8rem',
+                  lineHeight: 1.45,
+                  whiteSpace: 'pre-wrap'
+                }}>
+                  {(seedJob.logs || []).length > 0 ? seedJob.logs.join('\n') : 'No logs yet.'}
+                </div>
+              </>
+            ) : (
+              <div style={{ color: 'var(--text-dim)' }}>No seed job has run yet.</div>
+            )}
+          </div>
         </section>
       )}
     </main>

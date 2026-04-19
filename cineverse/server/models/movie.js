@@ -13,9 +13,13 @@ const movieSchema = new mongoose.Schema({
   backdrop: { type: String },
   trailerUrl: { type: String },
   videoUrl: { type: String },
+  tmdbId: { type: Number, sparse: true, index: true },
+  source: { type: String, enum: ['local', 'tmdb', 'archive.org', 'external'], default: 'local' },
+  archiveId: { type: String, sparse: true, index: true },
   featured: { type: Boolean, default: false },
   trending: { type: Boolean, default: false },
   isNew: { type: Boolean, default: false },
+  isFree: { type: Boolean, default: false },
   maturityRating: { type: String, enum: ['G', 'PG', 'PG-13', 'R', 'NC-17'], default: 'PG-13' },
   language: { type: String, default: 'English' },
   viewCount: { type: Number, default: 0 }

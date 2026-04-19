@@ -1,10 +1,25 @@
 import jwt from 'jsonwebtoken';
+import { spawn } from 'child_process';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import User from '../models/user.js';
 import Video from '../models/video.js';
 import Reel from '../models/reel.js';
 import Discussion from '../models/discussion.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'cineverse_secret_key';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const seedScriptPath = path.resolve(__dirname, '../seed.js');
+
+let currentSeedJob = null;
+let lastSeedJob = null;
+
+const parseLimit = (value, fallback) => {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
+  return parsed;
+};
 
 export const register = async (req, res) => {
   try {
@@ -287,5 +302,110 @@ export const deleteAdminUser = async (req, res) => {
     return res.json({ message: 'User deleted successfully' });
   } catch (error) {
     return res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+export const runCatalogSeed = async (req, res) => {
+  try {
+    if (currentSeedJob?.status === 'running') {
+      return res.status(409).json({
+        message: 'A seed job is already running',
+        job: currentSeedJob
+      });
+    }
+
+    const mode = req.body?.mode || 'append';
+    const source = req.body?.source || 'mixed';
+    const tmdbLimit = parseLimit(req.body?.tmdbLimit, 30);
+    const archiveLimit = parseLimit(req.body?.archiveLimit, 20);
+
+    if (!['replace', 'append'].includes(mode)) {
+      return res.status(400).json({ message: 'Invalid mode. Allowed: replace, append' });
+    }
+
+    if (!['mixed', 'tmdb', 'archive'].includes(source)) {
+      return res.status(400).json({ message: 'Invalid source. Allowed: mixed, tmdb, archive' });
+    }
+
+    const args = [seedScriptPath, `--mode=${mode}`, `--source=${source}`, `--tmdbLimit=${tmdbLimit}`, `--archiveLimit=${archiveLimit}`];
+    const child = spawn(process.execPath, args, {
+      cwd: path.resolve(__dirname, '..'),
+      env: process.env,
+      stdio: ['ignore', 'pipe', 'pipe']
+    });
+
+    const jobId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    currentSeedJob = {
+      id: jobId,
+      status: 'running',
+      mode,
+      source,
+      tmdbLimit,
+      archiveLimit,
+      startedAt: new Date().toISOString(),
+      finishedAt: null,
+      exitCode: null,
+      logs: []
+    };
+
+    const pushLog = (line) => {
+      if (!currentSeedJob) return;
+      const trimmed = String(line || '').trim();
+      if (!trimmed) return;
+      currentSeedJob.logs.push(trimmed);
+      if (currentSeedJob.logs.length > 200) {
+        currentSeedJob.logs = currentSeedJob.logs.slice(-200);
+      }
+    };
+
+    child.stdout.on('data', (chunk) => {
+      pushLog(chunk.toString());
+    });
+
+    child.stderr.on('data', (chunk) => {
+      pushLog(chunk.toString());
+    });
+
+    child.on('close', (code) => {
+      if (!currentSeedJob || currentSeedJob.id !== jobId) return;
+      currentSeedJob.status = code === 0 ? 'completed' : 'failed';
+      currentSeedJob.exitCode = code;
+      currentSeedJob.finishedAt = new Date().toISOString();
+      lastSeedJob = { ...currentSeedJob };
+      currentSeedJob = null;
+    });
+
+    child.on('error', (error) => {
+      if (!currentSeedJob || currentSeedJob.id !== jobId) return;
+      pushLog(`Process error: ${error.message}`);
+      currentSeedJob.status = 'failed';
+      currentSeedJob.exitCode = 1;
+      currentSeedJob.finishedAt = new Date().toISOString();
+      lastSeedJob = { ...currentSeedJob };
+      currentSeedJob = null;
+    });
+
+    return res.status(202).json({
+      message: 'Seed job started',
+      job: currentSeedJob
+    });
+  } catch (error) {
+    return res.status(500).json({ message: 'Failed to start seed job', error: error.message });
+  }
+};
+
+export const getCatalogSeedStatus = async (req, res) => {
+  try {
+    if (currentSeedJob) {
+      return res.json({ running: true, job: currentSeedJob });
+    }
+
+    return res.json({
+      running: false,
+      job: lastSeedJob,
+      message: lastSeedJob ? 'Last seed job result' : 'No seed jobs have run yet'
+    });
+  } catch (error) {
+    return res.status(500).json({ message: 'Failed to fetch seed status', error: error.message });
   }
 };

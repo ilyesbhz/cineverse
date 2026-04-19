@@ -1,24 +1,37 @@
 import express from 'express';
 import authenticate from '../middleware/auth.js';
+import User from '../models/user.js';
 
 const router = express.Router();
 
 // Add/remove from watchlist
 router.post('/watchlist/:movieId', authenticate, async (req, res) => {
   try {
-    const user = req.user;
+    const userId = req.user._id;
     const movieId = req.params.movieId;
-    const isInList = user.watchlist.includes(movieId);
 
+    // Check if movie is already in watchlist
+    const user = await User.findById(userId).select('watchlist');
+    const isInList = user.watchlist.some(id => id.toString() === movieId);
+
+    let updatedUser;
     if (isInList) {
-      user.watchlist = user.watchlist.filter(id => id.toString() !== movieId);
+      updatedUser = await User.findByIdAndUpdate(
+        userId,
+        { $pull: { watchlist: movieId } },
+        { new: true }
+      ).populate('watchlist');
     } else {
-      user.watchlist.push(movieId);
+      updatedUser = await User.findByIdAndUpdate(
+        userId,
+        { $push: { watchlist: movieId } },
+        { new: true }
+      ).populate('watchlist');
     }
-    await user.save();
-    await user.populate('watchlist');
-    res.json({ watchlist: user.watchlist, added: !isInList });
+
+    res.json({ watchlist: updatedUser.watchlist, added: !isInList });
   } catch (err) {
+    console.error('Watchlist error:', err.message);
     res.status(500).json({ message: err.message });
   }
 });
@@ -27,7 +40,7 @@ router.post('/watchlist/:movieId', authenticate, async (req, res) => {
 router.get('/watchlist', authenticate, async (req, res) => {
   try {
     await req.user.populate('watchlist');
-    res.json(req.user.watchlist);
+    res.json(req.user.watchlist || []);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

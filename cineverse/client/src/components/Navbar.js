@@ -321,6 +321,28 @@ export default function Navbar() {
           )}
         </div>
 
+        {/* Upload Reel Button */}
+        <Link to="/reels/upload" style={{
+          padding: '8px 16px',
+          borderRadius: '6px',
+          background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.8), rgba(236, 72, 153, 0.8))',
+          color: '#fff',
+          fontSize: '0.9rem',
+          fontWeight: 500,
+          textDecoration: 'none',
+          border: 'none',
+          cursor: 'pointer',
+          transition: 'all 0.2s',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+        }}
+          onMouseEnter={e => e.target.style.background = 'linear-gradient(135deg, rgba(139, 92, 246, 1), rgba(236, 72, 153, 1))'}
+          onMouseLeave={e => e.target.style.background = 'linear-gradient(135deg, rgba(139, 92, 246, 0.8), rgba(236, 72, 153, 0.8))'}
+        >
+          ⬆️ Upload
+        </Link>
+
         {/* User Menu */}
         <div style={{ position: 'relative' }}>
           <button

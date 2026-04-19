@@ -8,6 +8,7 @@ import BrowsePage from './BrowsePage';
 import AuthPage from './AuthPage';
 import WatchlistPage from './WatchlistPage';
 import ReelsPage from './ReelsPage';
+import UploadReelPage from './UploadReelPage';
 import DiscussionsPage from './DiscussionsPage';
 import PricingPage from './PricingPage';
 import ProfilePage from './ProfilePage';
@@ -33,6 +34,7 @@ const AppRoutes = () => {
       <Route path="/movie/:id" element={<PrivateRoute><Navbar /><MoviePage /></PrivateRoute>} />
       <Route path="/watchlist" element={<PrivateRoute><Navbar /><WatchlistPage /></PrivateRoute>} />
       <Route path="/reels" element={<PrivateRoute><Navbar /><ReelsPage /></PrivateRoute>} />
+      <Route path="/reels/upload" element={<PrivateRoute><Navbar /><UploadReelPage /></PrivateRoute>} />
       <Route path="/discussions" element={<PrivateRoute><Navbar /><DiscussionsPage /></PrivateRoute>} />
       <Route path="/pricing" element={<PrivateRoute><Navbar /><PricingPage /></PrivateRoute>} />
       <Route path="/profile" element={<PrivateRoute><Navbar /><ProfilePage /></PrivateRoute>} />

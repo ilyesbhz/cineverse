@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import VideoPlayer from '../components/VideoPlayer.jsx';
 
 export default function MoviePage() {
   const { API, user, getHeaders } = useAuth();
@@ -11,25 +13,25 @@ export default function MoviePage() {
   const [error, setError] = useState('');
   const [inWatchlist, setInWatchlist] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
 
   useEffect(() => {
-    axios
-      .get(`${API}/movies/${id}`)
+    api
+      .get(`/movies/${id}`)
       .then((res) => {
         setMovie(res.data);
-        // Check if in watchlist when user is logged in
-        if (user) {
-          checkWatchlistStatus();
-        }
       })
       .catch(() => setError('Movie not found'));
-  }, [API, id, user]);
+
+    // Check watchlist status whenever id changes
+    if (user) {
+      checkWatchlistStatus();
+    }
+  }, [id, user]);
 
   const checkWatchlistStatus = async () => {
     try {
-      const res = await axios.get(`${API}/users/watchlist`, {
-        headers: getHeaders()
-      });
+      const res = await api.get(`/users/watchlist`);
       const movieIds = res.data.map(m => m._id);
       setInWatchlist(movieIds.includes(id));
     } catch (err) {
@@ -42,7 +44,7 @@ export default function MoviePage() {
       navigate('/auth');
       return;
     }
-    // TODO: Integrate video player here
+    setIsPlaying(true);
   };
 
   const handleWatchlistClick = () => {
@@ -57,12 +59,11 @@ export default function MoviePage() {
     if (!movie || loading) return;
     setLoading(true);
     try {
-      const res = await axios.post(`${API}/users/watchlist/${id}`, {}, {
-        headers: getHeaders()
-      });
+      const res = await api.post(`/users/watchlist/${id}`, {});
       setInWatchlist(res.data.added);
     } catch (err) {
       console.error('Failed to update watchlist:', err);
+      alert('Failed to update watchlist');
     } finally {
       setLoading(false);
     }
@@ -70,6 +71,79 @@ export default function MoviePage() {
 
   if (error) return <main className="page" style={{ padding: '100px 24px' }}>{error}</main>;
   if (!movie) return <main className="page" style={{ padding: '100px 24px' }}>Loading movie...</main>;
+
+  if (isPlaying && movie.videoUrl) {
+    return (
+      <main style={{
+        paddingTop: '68px',
+        padding: '20px',
+        background: '#000',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        minHeight: '100vh'
+      }}>
+        <div style={{
+          width: '100%',
+          maxWidth: '1200px',
+          position: 'relative'
+        }}>
+          <VideoPlayer
+            videoUrl={movie.videoUrl}
+            title={movie.title}
+            thumbnail={movie.thumbnail}
+            qualityOptions={[
+              { label: 'Auto', url: movie.videoUrl, type: 'video/mp4' },
+              { label: '720p', url: movie.videoUrl, type: 'video/mp4' },
+              { label: '480p', url: movie.videoUrl, type: 'video/mp4' },
+              { label: '360p', url: movie.videoUrl, type: 'video/mp4' }
+            ]}
+            subtitles={[
+              { language: 'en', label: 'English', url: '#', default: true },
+              { language: 'es', label: 'Spanish', url: '#' },
+              { language: 'fr', label: 'French', url: '#' }
+            ]}
+            onPlaybackStart={() => {
+              if (user) {
+                api.post(`/users/history/${movie._id}`, {}).catch(() => {});
+              }
+            }}
+            closeButton={
+              <button
+                onClick={() => setIsPlaying(false)}
+                style={{
+                  position: 'absolute',
+                  top: '20px',
+                  right: '20px',
+                  background: 'rgba(229, 9, 20, 0.9)',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '4px',
+                  padding: '8px 16px',
+                  cursor: 'pointer',
+                  zIndex: 200,
+                  fontSize: '0.9rem',
+                  backdropFilter: 'blur(4px)',
+                  transition: 'all 0.2s ease',
+                  fontWeight: '600'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'rgba(229, 9, 20, 1)';
+                  e.currentTarget.style.transform = 'scale(1.05)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'rgba(229, 9, 20, 0.9)';
+                  e.currentTarget.style.transform = 'scale(1)';
+                }}
+              >
+                ✕ Close
+              </button>
+            }
+          />
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="page" style={{ paddingTop: '68px' }}>

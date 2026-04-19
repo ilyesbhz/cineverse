@@ -3,6 +3,25 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+console.log('Current directory:', __dirname);
+console.log('.env path:', path.join(__dirname, '.env'));
+
+// Load .env file from server directory
+const dotenvResult = dotenv.config({ path: path.join(__dirname, '.env') });
+if (dotenvResult.error) {
+  console.error('Error loading .env:', dotenvResult.error);
+} else {
+  console.log('.env loaded successfully');
+  console.log('Loaded variables:', Object.keys(dotenvResult.parsed || {}).join(', '));
+  console.log('TMDB_API_KEY in dotenvResult:', dotenvResult.parsed?.TMDB_API_KEY ? 'YES' : 'NO');
+  console.log('TMDB_API_KEY in process.env:', process.env.TMDB_API_KEY ? 'YES' : 'NO');
+  console.log('process.env.TMDB_API_KEY value:', process.env.TMDB_API_KEY ? process.env.TMDB_API_KEY.substring(0, 5) + '...' : 'NOT SET');
+}
+
 import connectDB from './config/db.js';
 import authRoutes from './routes/auth.js';
 import movieRoutes from './routes/movies.js';
@@ -15,12 +34,8 @@ import movieReelsRoutes from './routes/movieReels.js';
 import discussionRoutes from './routes/discussions.js';
 import notificationRoutes from './routes/notifications.js';
 
-dotenv.config();
-
 const app = express();
 const PORT = process.env.PORT || 5000;
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 // Middleware
 app.use(cors({
